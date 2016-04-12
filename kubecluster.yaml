@@ -250,6 +250,7 @@ resources:
     type: OS::Heat::AutoScalingGroup
     depends_on:
       - extrouter_inside
+      - master_wait_condition
     properties:
       resource:
         type: kubeminion.yaml
