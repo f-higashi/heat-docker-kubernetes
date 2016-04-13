@@ -136,6 +136,7 @@ start_k8s() {
         centos)
             DOCKER_CONF="/usr/lib/systemd/system/docker.service"
             sed -i "/^ExecStart=/ s~$~ --mtu=${FLANNEL_MTU} --bip=${FLANNEL_SUBNET}~" ${DOCKER_CONF}
+            sed -i.bak 's/^\(MountFlags=\).*/\1shared/' ${DOCKER_CONF}
             systemctl daemon-reload
             if ! command_exists ifconfig; then
                 yum -y -q install net-tools
@@ -179,20 +180,22 @@ start_k8s() {
         --volume=/sys:/sys:ro \
         --volume=/var/lib/docker/:/var/lib/docker:rw \
         --volume=/var/run:/var/run:rw \
-        --volume=/var/lib/kubelet:/var/lib/kubelet:rw \
+        --volume=/var/lib/kubelet:/var/lib/kubelet:shared \
         --net=host \
         --pid=host \
         --privileged=true \
         -d \
         gcr.io/google_containers/hyperkube-${ARCH}:v${K8S_VERSION} \
         /hyperkube kubelet \
-            --containerized \
             --hostname-override=${NODE_IP} \
             --address="0.0.0.0" \
             --api-servers=http://${MASTER_IP}:8080 \
             --cluster-dns=10.0.0.10 \
             --cluster-domain=cluster.local \
             --allow-privileged=true --v=2
+
+    mount --bind /var/lib/kubelet /var/lib/kubelet
+    mount --make-shared /var/lib/kubelet
 
     docker run \
         -d \
