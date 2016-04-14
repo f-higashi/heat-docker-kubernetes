@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: heapster-v1.0.0
+  namespace: kube-system
+  labels:
+    k8s-app: heapster
+    kubernetes.io/cluster-service: "true"
+spec:
+  replicas: 1
+  selector:
+    k8s-app: heapster
+  template:
+    metadata:
+      labels:
+        k8s-app: heapster
+        kubernetes.io/cluster-service: "true"
+    spec:
+      containers:
+        - image: gcr.io/google_containers/heapster:v1.0.0
+          name: heapster
+          resources:
+            # keep request = limit to keep this container in guaranteed class
+            limits:
+              cpu: 100m
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          command:
+            - /heapster
+            - --source=kubernetes.summary_api:''
+            - --sink=monasca:?user-id=ff69eeb3fd3b412a917be02ecc833963&password=password&keystone-url=http://10.140.18.87:5000/v3
+            - --metric_resolution=60s
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: /etc/ssl/certs
+              readOnly: true
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            path: "/etc/ssl/certs"
