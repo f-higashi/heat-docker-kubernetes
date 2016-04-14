@@ -174,6 +174,11 @@ start_k8s() {
 
     # Start kubelet & proxy in container
     # TODO: Use secure port for communication
+
+    mkdir -p /var/lib/kubelet
+    mount --bind /var/lib/kubelet /var/lib/kubelet
+    mount --make-shared /var/lib/kubelet
+
     docker run \
         --name=kubelet \
         --volume=/:/rootfs:ro \
@@ -192,10 +197,7 @@ start_k8s() {
             --api-servers=http://${MASTER_IP}:8080 \
             --cluster-dns=10.0.0.10 \
             --cluster-domain=cluster.local \
-            --allow-privileged=true --v=2
-
-    mount --bind /var/lib/kubelet /var/lib/kubelet
-    mount --make-shared /var/lib/kubelet
+            --allow-privileged=true --v=2  
 
     docker run \
         -d \

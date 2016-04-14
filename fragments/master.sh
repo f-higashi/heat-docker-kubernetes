@@ -184,6 +184,10 @@ start_k8s(){
     sleep 5
 
     # Start kubelet and then start master components as pods
+    mkdir -p /var/lib/kubelet
+    mount --bind /var/lib/kubelet /var/lib/kubelet
+    mount --make-shared /var/lib/kubelet
+
     docker run \
         --name=kubelet \
         --volume=/:/rootfs:ro \
@@ -206,8 +210,6 @@ start_k8s(){
             --cluster-domain=cluster.local \
             --allow-privileged=true --v=2
 
-    mount --bind /var/lib/kubelet /var/lib/kubelet
-    mount --make-shared /var/lib/kubelet
 }
 
 echo "Detecting your OS distro ..."
