@@ -153,6 +153,7 @@ start_k8s(){
         centos)
             DOCKER_CONF="/usr/lib/systemd/system/docker.service"
             sed -i "/^ExecStart=/ s~$~ --mtu=${FLANNEL_MTU} --bip=${FLANNEL_SUBNET}~" ${DOCKER_CONF}
+            sed -i.bak 's/^\(MountFlags=\).*/\1shared/' ${DOCKER_CONF}
             systemctl daemon-reload
             if ! command_exists ifconfig; then
                 yum -y -q install net-tools
@@ -183,13 +184,17 @@ start_k8s(){
     sleep 5
 
     # Start kubelet and then start master components as pods
+    mkdir -p /var/lib/kubelet
+    mount --bind /var/lib/kubelet /var/lib/kubelet
+    mount --make-shared /var/lib/kubelet
+
     docker run \
         --name=kubelet \
         --volume=/:/rootfs:ro \
         --volume=/sys:/sys:ro \
         --volume=/var/lib/docker/:/var/lib/docker:rw \
         --volume=/var/run:/var/run:rw \
-        --volume=/var/lib/kubelet:/var/lib/kubelet:rw \
+        --volume=/var/lib/kubelet:/var/lib/kubelet:shared \
         --net=host \
         --pid=host \
         --privileged=true \
