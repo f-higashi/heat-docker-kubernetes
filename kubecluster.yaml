@@ -48,6 +48,11 @@ parameters:
     description: network range for fixed ip network
     default: 10.0.0.0/24
 
+  flannel_network_cidr:
+    type: string
+    description: network range for container network
+    default: 10.1.0.0/16
+
   apiserver_user:
     type: string
     description: User name used for api-server
@@ -178,6 +183,7 @@ resources:
           template: {get_file: fragments/write-heat-params.yaml}
           params:
             "$MASTER_IP": {get_attr: [kube_master_eth0, fixed_ips, 0, ip_address]}
+            "$FLANNEL_SUBNET": {get_param: flannel_network_cidr}
 
   kube_user:
     type: OS::Heat::SoftwareConfig
@@ -230,7 +236,7 @@ resources:
       fixed_ips:
         - subnet: {get_resource: fixed_subnet}
       allowed_address_pairs:
-        - ip_address: 10.246.0.0/16
+        - ip_address: {get_param: flannel_network_cidr}  
       replacement_policy: AUTO
 
   kube_master_floating:

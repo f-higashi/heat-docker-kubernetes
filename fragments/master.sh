@@ -31,6 +31,8 @@ ETCD_VERSION=${ETCD_VERSION:-"2.2.1"}
 FLANNEL_VERSION=${FLANNEL_VERSION:-"0.5.5"}
 FLANNEL_IPMASQ=${FLANNEL_IPMASQ:-"true"}
 FLANNEL_IFACE=${FLANNEL_IFACE:-"eth0"}
+FLANNEL_BACKEND_TYPE=${FLANNEL_BACKEND_TYPE:-"vxlan"}
+FLANNEL_SUBNET=${FLANNEL_SUBNET:-"10.1.0.0/16"}
 ARCH=${ARCH:-"amd64"}
 
 # Run as root
@@ -49,6 +51,7 @@ echo "ETCD_VERSION is set to: ${ETCD_VERSION}"
 echo "FLANNEL_VERSION is set to: ${FLANNEL_VERSION}"
 echo "FLANNEL_IFACE is set to: ${FLANNEL_IFACE}"
 echo "FLANNEL_IPMASQ is set to: ${FLANNEL_IPMASQ}"
+echo "FLANNEL_SUBNET is set to : ${FLANNEL_SUBNET}"
 echo "MASTER_IP is set to: ${MASTER_IP}"
 echo "ARCH is set to: ${ARCH}"
 
@@ -121,7 +124,7 @@ start_k8s(){
         --net=host gcr.io/google_containers/etcd:${ETCD_VERSION} \
         etcdctl \
         set /coreos.com/network/config \
-            '{ "Network": "10.1.0.0/16", "Backend": {"Type": "vxlan"}}'
+            "{ \"Network\": \"${FLANNEL_SUBNET}\", \"Backend\": {\"Type\": \"${FLANNEL_BACKEND_TYPE}\"}}"
 
     # iface may change to a private network interface, eth0 is for default
     flannelCID=$(docker -H unix:///var/run/docker-bootstrap.sock run \
