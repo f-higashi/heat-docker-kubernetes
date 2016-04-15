@@ -30,7 +30,7 @@ spec:
           command:
             - /heapster
             - --source=kubernetes.summary_api:''
-            - --sink=monasca:?user-id=ff69eeb3fd3b412a917be02ecc833963&password=password&keystone-url=http://10.140.18.87:5000/v3
+            - --sink=monasca:?user-id={{ pillar['monasca-user-id'] }}&password={{ pillar['monasca-user-password'] }}&keystone-url={{ pillar['keystone-url'] }}
             - --metric_resolution=60s
           volumeMounts:
             - name: ssl-certs
