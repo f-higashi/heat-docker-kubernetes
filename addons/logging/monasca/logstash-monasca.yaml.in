@@ -2,16 +2,13 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: logstash-monasca
-  namespace: kube-system
   labels:
     name: logstash-monasca
 spec:
   template:
     metadata:
-      name: logstash-monasca
-      namespace: kube-system
       labels:
-        k8s-app: logstash-monasca
+        app: logstash-monasca
     spec:
       containers:
       - name: logstash-monasca
@@ -41,7 +38,6 @@ spec:
         tty: true
         # for debugging
         stdin: true
-      terminationGracePeriodSeconds: 30
       volumes:
       - name: varlog
         hostPath:
