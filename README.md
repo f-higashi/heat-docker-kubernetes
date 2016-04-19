@@ -1,87 +1,116 @@
-# heat-docker-kubernetes
+# Getting started with k8s-docker-provisioner
 
-Steps:
+This guide will take you through the steps of deploying Kubernetes to Openstack using docker. The primary concept is described here: [docker-multinode](https://github.com/FujitsuEnablingSoftwareTechnologyGmbH/kubernetes/blob/master/docs/getting-started-guides/docker-multinode/master.md)
 
-1. Deploy a Kubernetes cluster on DevStack using Heat
+This guide assumes you have a working OpenStack cluster.
+
+## Pre-Requisites
 
 
-## Directory layout
+### Install OpenStack CLI tools
 
-Clone  <https://github.com/FujitsuEnablingSoftwareTechnologyGmbH/devstack-vagrant.git>
-
-* `~/your_workspace/devstack-vagrant/`
-
-## Setup DevStack
-
-Provision DevStack.
-
+- heat >= 0.9.0
+- nova >= 3.2.0
 ```
-cd ~/your_workspace/devstack-vagrant/
-DEVSTACK_MEM=10024 DEVSTACK_CPUS=6 vagrant up --provider libvirt
+ sudo pip install -U python-heatclient
+
+ sudo pip install -U python-novaclient
 ```
 
-Download custom image from Google drive: <https://drive.google.com/file/d/0B6KOuPCy8tK1aDRCaE16N1hkcUU/view>
-Uncompress it and upload to vgrant host
 
+### Configure Openstack CLI tools
+
+ Please get your OpenStack credential and modify the variables in the following files:
+
+ - **config-default.sh** Sets all parameters needed for heat template.
+ - **openrc-default.sh** Sets environment variables for communicating to OpenStack. These are consumed by the cli tools (heat, nova).
+
+### Get kubectl
+
+If you already have the kubectl, you can skip this step.
+
+kubectl is a command-line program for interacting with the Kubernetes API. The following steps should be done from a local workstation to get kubectl.
+Download kubectl from the Kubernetes release artifact site with the curl tool.
+
+The linux kubectl binary can be fetched with a command like:
 ```
-unxz centos7-docker.qcow2.xz
-scp -i devstack/.vagrant/machines/devstack/libvirt/private_key centos7-docker.qcow2 vagrant@192.168.123.100:/tmp/centos7-docker.qcow2
-```
-Upload custom Centos image to OpenStack.
-
-```
-cd ~/your_workspace/devstack-vagrant/
-vagrant ssh
-
-sudo su - stack
-. devstack/openrc admin admin
-
-glance image-create --name centos7 --disk-format qcow2 --container-format bare --file /tmp/centos7-docker.qcow2 --is-public True
-```
-
-Create and register a keypair.
-
-```
-ssh-keygen -f ~/.ssh/id_rsa -P ''
-nova keypair-add keypair1 --pub-key ~/.ssh/id_rsa.pub
+$ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubectl
 ```
 
-## Deploy Kubernetes cluster
-
+Make kubectl visible in your system.
 ```
-admin_tenant_id=$(openstack project show admin -f value -c id)
-
-image_id=$(openstack image show centos7 -f value -c id)
-dns_server=10.0.238.34 # Change it to match your environment
-
-git clone http://estscm1.intern.est.fujitsu.com/wlm/heat-docker-kubernetes.git
-cd heat-docker-kubernetes
-
-heat stack-create \
-     -P external_network=public \
-     -P ssh_key_name=keypair1 \
-     -P server_image=${image_id} \
-     -P master_flavor=m1.small \
-     -P minion_flavor=m1.small \
-     -P number_of_minions=1 \
-     -P max_number_of_minions=1 \
-     -P dns_nameserver=$dns_server \
-     --timeout 60 \
-     --template-file kubecluster.yaml \
-     kubernetes_stack
+sudo cp kubectl /usr/local/bin
 ```
 
-## Verification
+### Prepare Openstack image
 
-From your client computer:
+The provisioning works on any operating system that has a Docker >= 1.10 and Docker-bootstrap service installed. This service is used to
+run flannel network inside of Docker containers themselves.
+
+
+If you want to build your own image you can use this project: [k8s-nodeos-builder](https://github.com/FujitsuEnablingSoftwareTechnologyGmbH/k8s-nodeos-builder)
+
+You can download such a prepared image from here: [Download image](https://github.com/FujitsuEnablingSoftwareTechnologyGmbH/k8s-nodeos-builder/releases/download/0.1/k8s_nodeOS.qcow2.xz)
+
+Uncompress it and upload to your OpenStack.
+```
+curl -L https://github.com/FujitsuEnablingSoftwareTechnologyGmbH/k8s-nodeos-builder/releases/download/0.1/k8s_nodeOS.qcow2.xz -O
+unxz k8s_nodeOS.qcow2.xz
+source openrc-default.sh
+glance image-create --name centos7-docker --disk-format qcow2 --container-format bare --file k8s_nodeOS.qcow2
+```
+
+Don't forget update IMAGE_ID variable in config-default.sh file.
+
+
+## Starting a cluster
+
+
+Execute command:
 
 ```
-$ kubectl -s http://MASTER_IP:8080 get nodes
+./kube-up.sh
+```
+
+When your settings are correct you should see installation progress. Script checks if cluster is available as a final step.
+
+```
+... calling verify-prereqs
+heat client installed
+nova client installed
+kubectl client installed
+... calling kube-up
+kube-up for provider openstack
+[INFO] Execute commands to create Kubernetes cluster
+[INFO] Key pair already exists
+Stack not found: KubernetesStack
+[INFO] Create stack KubernetesStack
++--------------------------------------+-----------------+--------------------+----------------------+--------------+
+| id                                   | stack_name      | stack_status       | creation_time        | updated_time |
++--------------------------------------+-----------------+--------------------+----------------------+--------------+
+| d5ac5664-4dd8-4643-ad89-f71401970892 | KubernetesStack | CREATE_IN_PROGRESS | 2016-04-19T08:23:33Z | None         |
++--------------------------------------+-----------------+--------------------+----------------------+--------------+
+... calling validate-cluster
+Cluster status CREATE_IN_PROGRESS
+Cluster status CREATE_IN_PROGRESS
+Cluster status CREATE_IN_PROGRESS
+Cluster status CREATE_IN_PROGRESS
+Cluster status CREATE_IN_PROGRESS
+Cluster status CREATE_IN_PROGRESS
+Cluster status CREATE_IN_PROGRESS
+Cluster status CREATE_COMPLETE
+cluster "heat-docker-kubernetes" set.
+context "heat-docker-kubernetes" set.
+switched to context "heat-docker-kubernetes".
+Wrote config for heat-docker-kubernetes to /home/stack/.kube/config
+... calling configure-kubectl
+cluster "heat-docker-kubernetes" set.
+context "heat-docker-kubernetes" set.
+switched to context "heat-docker-kubernetes".
+Wrote config for heat-docker-kubernetes to /home/stack/.kube/config
+... checking nodes
 NAME       STATUS    AGE
-10.0.0.3   Ready     52m
-10.0.0.4   Ready     50m
+10.0.0.3   Ready     1m
+10.0.0.4   Ready     20s
 
 ```
-
-
-
