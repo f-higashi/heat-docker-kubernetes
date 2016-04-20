@@ -201,7 +201,6 @@ start_k8s(){
         -d \
         gcr.io/google_containers/hyperkube-${ARCH}:v${K8S_VERSION} \
         /hyperkube kubelet \
-            --containerized \
             --hostname-override=${MASTER_IP} \
             --address="0.0.0.0" \
             --api-servers=http://localhost:8080 \
