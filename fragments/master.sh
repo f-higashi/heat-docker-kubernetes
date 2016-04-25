@@ -198,7 +198,6 @@ start_k8s(){
         --net=host \
         --pid=host \
         --privileged=true \
-        --restart=on-failure \
         -d \
         gcr.io/google_containers/hyperkube-${ARCH}:v${K8S_VERSION} \
         /hyperkube kubelet \
