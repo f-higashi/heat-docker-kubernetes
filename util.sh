@@ -13,7 +13,7 @@ DEFAULT_KUBECONFIG=~/.kube/config
 # Verify prereqs on host machine
 function verify-prereqs() {
  # Check the OpenStack command-line clients
- for client in heat nova kubectl;
+ for client in openstack nova kubectl;
  do
   if which $client >/dev/null 2>&1; then
     echo "$client client installed"
@@ -43,7 +43,7 @@ function validate-cluster() {
   local sp="/-\|"
   SECONDS=0
   while (( ${SECONDS} < ${STACK_CREATE_TIMEOUT}*60 )) ;do
-     local status=$(heat stack-show "${STACK_NAME}" | awk '$2=="stack_status" {print $4}')
+     local status=$(openstack stack show "${STACK_NAME}" | awk '$2=="stack_status" {print $4}')
      if [[ $status ]]; then
         if [ $status = "CREATE_COMPLETE" ]; then
           echo "Cluster status ${status}"
@@ -100,24 +100,24 @@ function add-keypair() {
 #   MAX_NUMBER_OF_MINIONS
 function run-heat-script() {
 
-  local stack_status=$(heat stack-show ${STACK_NAME})
+  local stack_status=$(openstack stack show ${STACK_NAME})
 
   if [[ ! $stack_status ]]; then
     echo "[INFO] Create stack ${STACK_NAME}"
-    heat --api-timeout 60 stack-create \
-      -P external_network=${EXTERNAL_NETWORK} \
-      -P ssh_key_name=${KUBERNETES_KEYPAIR_NAME} \
-      -P server_image=${IMAGE_ID} \
-      -P master_flavor=${MASTER_FLAVOR} \
-      -P minion_flavor=${MINION_FLAVOR} \
-      -P number_of_minions=${NUMBER_OF_MINIONS} \
-      -P max_number_of_minions=${MAX_NUMBER_OF_MINIONS} \
-      -P dns_nameserver=${DNS_SERVER} \
-      --template-file kubecluster.yaml \
+    openstack stack create --timeout 60 \
+      --parameter external_network=${EXTERNAL_NETWORK} \
+      --parameter ssh_key_name=${KUBERNETES_KEYPAIR_NAME} \
+      --parameter server_image=${IMAGE_ID} \
+      --parameter master_flavor=${MASTER_FLAVOR} \
+      --parameter minion_flavor=${MINION_FLAVOR} \
+      --parameter number_of_minions=${NUMBER_OF_MINIONS} \
+      --parameter max_number_of_minions=${MAX_NUMBER_OF_MINIONS} \
+      --parameter dns_nameserver=${DNS_SERVER} \
+      --template kubecluster.yaml \
       ${STACK_NAME}
   else
     echo "[INFO] Stack ${STACK_NAME} already exists"
-    heat stack-show ${STACK_NAME}
+    openstack stack show ${STACK_NAME}
   fi
 }
 
