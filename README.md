@@ -9,10 +9,10 @@ This guide assumes you have a working OpenStack cluster.
 
 ### Install OpenStack CLI tools
 
-- heat >= 0.9.0
+- openstack >= 2.4.0
 - nova >= 3.2.0
 ```
- sudo pip install -U python-heatclient
+ sudo pip install -U python-openstackclient
 
  sudo pip install -U python-novaclient
 ```
