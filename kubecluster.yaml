@@ -185,6 +185,26 @@ resources:
       group: ungrouped
       config: {get_file: fragments/kube-user.yaml}
 
+  pre_tasks:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config:
+        str_replace:
+          template: {get_file: fragments/custom-scripts.sh}
+          params:
+            "$CUSTOM_SCRIPTS_PATH": " /usr/local/pre-scripts"
+
+  post_tasks:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config:
+        str_replace:
+          template: {get_file: fragments/custom-scripts.sh}
+          params:
+            "$CUSTOM_SCRIPTS_PATH": " /usr/local/post-scripts"
+
   provision_master:
     type: OS::Heat::SoftwareConfig
     properties:
@@ -197,7 +217,9 @@ resources:
       parts:
         - config: {get_resource: write_heat_params}
         - config: {get_resource: kube_user}
+        - config: {get_resource: pre_tasks}
         - config: {get_resource: provision_master}
+        - config: {get_resource: post_tasks}
         - config: {get_resource: master_wc_notify}
 
   ######################################################################
