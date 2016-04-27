@@ -114,3 +114,14 @@ NAME       STATUS    AGE
 10.0.0.4   Ready     20s
 
 ```
+
+## Customization
+
+User have possibility to execute custom scripts on master before and after provision process.
+
+Scripts must be stored in directories: 
+
+- /usr/local/pre-scripts  - executed before provision
+- /usr/local/post-scripts - executed after provision
+
+User should remember to set correct rights **(rw-r-r)** for scripts.
