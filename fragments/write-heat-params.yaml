@@ -6,3 +6,4 @@ write_files:
     permissions: "0644"
     content: |
       MASTER_IP=$MASTER_IP
+      ROLE=$ROLE

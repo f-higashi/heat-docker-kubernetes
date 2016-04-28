@@ -178,6 +178,7 @@ resources:
           template: {get_file: fragments/write-heat-params.yaml}
           params:
             "$MASTER_IP": {get_attr: [kube_master_eth0, fixed_ips, 0, ip_address]}
+            "$ROLE": "master"
 
   kube_user:
     type: OS::Heat::SoftwareConfig
