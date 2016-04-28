@@ -117,11 +117,12 @@ NAME       STATUS    AGE
 
 ## Customization
 
-User have possibility to execute custom scripts on master before and after provision process.
+User have possibility to execute custom scripts on master and node before and after provision process.
 
-Scripts must be stored in directories: 
+Scripts must be stored in image directories: 
 
 - /usr/local/pre-scripts  - executed before provision
 - /usr/local/post-scripts - executed after provision
 
 User should remember to set correct rights **(rw-r-r)** for scripts.
+The /etc/sysconfig/heat-params file contains ROLE variable to distinguish master from node.
