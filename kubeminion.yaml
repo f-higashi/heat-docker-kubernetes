@@ -115,13 +115,35 @@ resources:
       group: ungrouped
       config: {get_file: fragments/worker.sh}
 
+  pre_tasks:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config:
+        str_replace:
+          template: {get_file: fragments/custom-scripts.sh}
+          params:
+            "$CUSTOM_SCRIPTS_PATH": " /usr/local/pre-scripts"
+
+  post_tasks:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config:
+        str_replace:
+          template: {get_file: fragments/custom-scripts.sh}
+          params:
+            "$CUSTOM_SCRIPTS_PATH": " /usr/local/post-scripts"
+
   kube_minion_init:
     type: OS::Heat::MultipartMime
     properties:
       parts:
         - config: {get_resource: write_heat_params}
         - config: {get_resource: kube_user}
+        - config: {get_resource: pre_tasks}
         - config: {get_resource: provision_node}
+        - config: {get_resource: post_tasks}
         - config: {get_resource: minion_wc_notify}
 
   ######################################################################
