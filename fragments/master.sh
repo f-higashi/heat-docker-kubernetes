@@ -208,13 +208,61 @@ start_k8s(){
             --cluster-dns=10.0.0.10 \
             --cluster-domain=cluster.local \
             --allow-privileged=true --v=2
-
 }
+
+run_addons_container(){
+  docker run \
+      --net=host \
+      -d \
+      fest/addons_services:latest
+}
+
+set +e
+deploy_add_ons(){
+  # poll the server until it starts up then run addons
+  wait_on_api_server
+  run_addons_container
+}
+
+wait_on_api_server(){
+  # init vars
+  which curl > /dev/null || {
+    echo "curl must be installed"
+    exit 1
+  }
+
+  local URL='http://localhost:8080/healthz'
+  local RESPONSE=$(curl --write-out %{http_code} --silent --output /dev/null $URL )
+  local OK_STATUS=200
+  local TIMEOUT=300 # 5 minutes
+  local INTERVAL=5 # every 5 seconds
+
+  local NEXT_WAIT_TIME=0
+  until [ ${RESPONSE:-0} -eq $OK_STATUS ] || [ $NEXT_WAIT_TIME -eq $TIMEOUT ]; do
+    sleep ${INTERVAL}
+    RESPONSE=$(curl --write-out %{http_code} --silent --output /dev/null $URL )
+    let NEXT_WAIT_TIME=NEXT_WAIT_TIME+INTERVAL
+  done
+
+  if [ ${RESPONSE:-0} -eq $OK_STATUS ]; then
+        echo "Success: Response 200 received from API service ..."
+  elif [ $NEXT_WAIT_TIME -eq $TIMEOUT ]; then
+        echo "Error: Timeout has occurred while trying to contact the API service ..."
+  else
+        echo "Error: API service cannot be reched ..."
+  fi
+}
+set -e
 
 echo "Detecting your OS distro ..."
 detect_lsb
 
 echo "Starting k8s ..."
 start_k8s
+
+echo "Start polling for API service ..."
+set +e
+deploy_add_ons &
+set -e
 
 echo "Master done!"
