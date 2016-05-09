@@ -26,12 +26,16 @@ if ( ! ps -ef | grep "/usr/bin/docker" | grep -v 'grep' &> /dev/null ); then
 fi
 
 # Make sure k8s version env is properly set
-K8S_VERSION=${K8S_VERSION:-"1.2.0"}
-ETCD_VERSION=${ETCD_VERSION:-"2.2.1"}
-FLANNEL_VERSION=${FLANNEL_VERSION:-"0.5.5"}
 FLANNEL_IPMASQ=${FLANNEL_IPMASQ:-"true"}
 FLANNEL_IFACE=${FLANNEL_IFACE:-"eth0"}
 ARCH=${ARCH:-"amd64"}
+
+# Make sure k8s images are properly set
+ETCD_IMAGE=${ETCD_IMAGE:-gcr.io/google_containers/etcd-amd64:2.2.1}
+FLANNEL_IMAGE=${FLANNEL_IMAGE:-quay.io/coreos/flannel:0.5.5}
+HYPERKUBE_IMAGE=${HYPERKUBE_IMAGE:-gcr.io/google_containers/hyperkube-amd64:v1.2.0}
+ADDONS_IMAGE=${ADDONS_IMAGE:-fest/addons_services:latest}
+PAUSE_IMAGE=${PAUSE_IMAGE:-gcr.io/google_containers/pause:2.0}
 
 # Run as root
 if [ "$(id -u)" != "0" ]; then
@@ -44,9 +48,6 @@ if [ -z ${MASTER_IP} ]; then
     MASTER_IP=$(hostname -I | awk '{print $1}')
 fi
 
-echo "K8S_VERSION is set to: ${K8S_VERSION}"
-echo "ETCD_VERSION is set to: ${ETCD_VERSION}"
-echo "FLANNEL_VERSION is set to: ${FLANNEL_VERSION}"
 echo "FLANNEL_IFACE is set to: ${FLANNEL_IFACE}"
 echo "FLANNEL_IPMASQ is set to: ${FLANNEL_IPMASQ}"
 echo "MASTER_IP is set to: ${MASTER_IP}"
@@ -109,7 +110,7 @@ start_k8s(){
         --restart=on-failure \
         --net=host \
         -d \
-        gcr.io/google_containers/etcd-${ARCH}:${ETCD_VERSION} \
+        ${ETCD_IMAGE} \
         /usr/local/bin/etcd \
             --listen-client-urls=http://127.0.0.1:4001,http://${MASTER_IP}:4001 \
             --advertise-client-urls=http://${MASTER_IP}:4001 \
@@ -118,7 +119,7 @@ start_k8s(){
     sleep 5
     # Set flannel net config
     docker -H unix:///var/run/docker-bootstrap.sock run \
-        --net=host gcr.io/google_containers/etcd:${ETCD_VERSION} \
+        --net=host ${ETCD_IMAGE} \
         etcdctl \
         set /coreos.com/network/config \
             '{ "Network": "10.1.0.0/16", "Backend": {"Type": "vxlan"}}'
@@ -130,7 +131,7 @@ start_k8s(){
         --net=host \
         --privileged \
         -v /dev/net:/dev/net \
-        quay.io/coreos/flannel:${FLANNEL_VERSION} \
+        ${FLANNEL_IMAGE} \
         /opt/bin/flanneld \
             --ip-masq="${FLANNEL_IPMASQ}" \
             --iface="${FLANNEL_IFACE}")
@@ -199,7 +200,7 @@ start_k8s(){
         --pid=host \
         --privileged=true \
         -d \
-        gcr.io/google_containers/hyperkube-${ARCH}:v${K8S_VERSION} \
+        ${HYPERKUBE_IMAGE} \
         /hyperkube kubelet \
             --hostname-override=${MASTER_IP} \
             --address="0.0.0.0" \
@@ -207,14 +208,15 @@ start_k8s(){
             --config=/etc/kubernetes/manifests-multi \
             --cluster-dns=10.0.0.10 \
             --cluster-domain=cluster.local \
-            --allow-privileged=true --v=2
+            --allow-privileged=true --v=2 \
+            --pod-infra-container-image=${PAUSE_IMAGE}
 }
 
 run_addons_container(){
   docker run \
       --net=host \
       -d \
-      fest/addons_services:latest
+      ${ADDONS_IMAGE}
 }
 
 set +e
@@ -252,10 +254,44 @@ wait_on_api_server(){
         echo "Error: API service cannot be reched ..."
   fi
 }
+
+set_docker_registry(){
+
+	# Add docker registry as prefix for k8s images.
+	if [[ -n ${DOCKER_REGISTRY_PREFIX} ]]; then
+	  ETCD_IMAGE=${DOCKER_REGISTRY_PREFIX}/${ETCD_IMAGE}
+	  FLANNEL_IMAGE=${DOCKER_REGISTRY_PREFIX}/${FLANNEL_IMAGE}
+	  HYPERKUBE_IMAGE=${DOCKER_REGISTRY_PREFIX}/${HYPERKUBE_IMAGE}
+	  ADDONS_IMAGE=${DOCKER_REGISTRY_PREFIX}/${ADDONS_IMAGE}
+	  PAUSE_IMAGE=${DOCKER_REGISTRY_PREFIX}/${PAUSE_IMAGE}
+	fi
+
+    case "${lsb_dist}" in
+        centos)
+			DOCKER_CONF="/usr/lib/systemd/system/docker.service"
+			DOCKER_BOOTSTRAP_CONF="/usr/lib/systemd/system/docker-bootstrap.service"
+			if [[ -n ${DOCKER_REGISTRY_URL} ]]; then
+			  sed -i "/^ExecStart=/ s~$~ --insecure-registry=${DOCKER_REGISTRY_URL}~" ${DOCKER_CONF}
+			  sed -i "/graph=/ s~$~ --insecure-registry=${DOCKER_REGISTRY_URL}~" ${DOCKER_BOOTSTRAP_CONF}
+			  systemctl daemon-reload
+			  systemctl restart docker
+			  systemctl restart docker-bootstrap
+			fi
+            ;;
+        *)
+            echo "Unsupported operations system ${lsb_dist}"
+            exit 1
+            ;;
+    esac
+}
+
 set -e
 
 echo "Detecting your OS distro ..."
 detect_lsb
+
+echo "Set docker registry"
+set_docker_registry
 
 echo "Starting k8s ..."
 start_k8s

@@ -19,8 +19,6 @@
 
 set -e
 
-. /etc/sysconfig/heat-params
-
 # Make sure docker daemon is running
 if ( ! ps -ef | grep "/usr/bin/docker" | grep -v 'grep' &> /dev/null  ); then
     echo "Docker is not running on this machine!"
@@ -28,11 +26,14 @@ if ( ! ps -ef | grep "/usr/bin/docker" | grep -v 'grep' &> /dev/null  ); then
 fi
 
 # Make sure k8s version env is properly set
-K8S_VERSION=${K8S_VERSION:-"1.2.0"}
-FLANNEL_VERSION=${FLANNEL_VERSION:-"0.5.5"}
 FLANNEL_IFACE=${FLANNEL_IFACE:-"eth0"}
 FLANNEL_IPMASQ=${FLANNEL_IPMASQ:-"true"}
 ARCH=${ARCH:-"amd64"}
+
+# Make sure k8s images are properly set
+HYPERKUBE_IMAGE=${HYPERKUBE_IMAGE:-gcr.io/google_containers/hyperkube-amd64:v1.2.0}
+PAUSE_IMAGE=${PAUSE_IMAGE:-gcr.io/google_containers/pause:2.0}
+FLANNEL_IMAGE=${FLANNEL_IMAGE:-quay.io/coreos/flannel:0.5.5}
 
 # Run as root
 if [ "$(id -u)" != "0" ]; then
@@ -51,8 +52,6 @@ if [ -z ${NODE_IP} ]; then
     NODE_IP=$(hostname -I | awk '{print $1}')
 fi
 
-echo "K8S_VERSION is set to: ${K8S_VERSION}"
-echo "FLANNEL_VERSION is set to: ${FLANNEL_VERSION}"
 echo "FLANNEL_IFACE is set to: ${FLANNEL_IFACE}"
 echo "FLANNEL_IPMASQ is set to: ${FLANNEL_IPMASQ}"
 echo "MASTER_IP is set to: ${MASTER_IP}"
@@ -116,7 +115,7 @@ start_k8s() {
         --net=host \
         --privileged \
         -v /dev/net:/dev/net \
-        quay.io/coreos/flannel:${FLANNEL_VERSION} \
+        ${FLANNEL_IMAGE} \
         /opt/bin/flanneld \
             --ip-masq="${FLANNEL_IPMASQ}" \
             --etcd-endpoints=http://${MASTER_IP}:4001 \
@@ -191,28 +190,60 @@ start_k8s() {
         --privileged=true \
         --restart=on-failure \
         -d \
-        gcr.io/google_containers/hyperkube-${ARCH}:v${K8S_VERSION} \
+        ${HYPERKUBE_IMAGE} \
         /hyperkube kubelet \
             --hostname-override=${NODE_IP} \
             --address="0.0.0.0" \
             --api-servers=http://${MASTER_IP}:8080 \
             --cluster-dns=10.0.0.10 \
             --cluster-domain=cluster.local \
-            --allow-privileged=true --v=2  
+            --allow-privileged=true --v=2  \
+            --pod-infra-container-image=${PAUSE_IMAGE}
 
     docker run \
         -d \
         --net=host \
         --privileged \
         --restart=on-failure \
-        gcr.io/google_containers/hyperkube-${ARCH}:v${K8S_VERSION} \
+        ${HYPERKUBE_IMAGE} \
         /hyperkube proxy \
             --master=http://${MASTER_IP}:8080 \
             --v=2
 }
 
+set_docker_registry(){
+
+	# Add docker registry as prefix for k8s images.
+	if [[ -n ${DOCKER_REGISTRY_PREFIX} ]]; then
+	  HYPERKUBE_IMAGE=${DOCKER_REGISTRY_PREFIX}/${HYPERKUBE_IMAGE}
+	  PAUSE_IMAGE=${DOCKER_REGISTRY_PREFIX}/${PAUSE_IMAGE}
+	  FLANNEL_IMAGE=${DOCKER_REGISTRY_PREFIX}/${FLANNEL_IMAGE}
+	fi
+
+    case "${lsb_dist}" in
+        centos)
+			DOCKER_CONF="/usr/lib/systemd/system/docker.service"
+			DOCKER_BOOTSTRAP_CONF="/usr/lib/systemd/system/docker-bootstrap.service"
+			if [[ -n ${DOCKER_REGISTRY_URL} ]]; then
+			  sed -i "/^ExecStart=/ s~$~ --insecure-registry=${DOCKER_REGISTRY_URL}~" ${DOCKER_CONF}
+			  sed -i "/graph=/ s~$~ --insecure-registry=${DOCKER_REGISTRY_URL}~" ${DOCKER_BOOTSTRAP_CONF}
+			  systemctl daemon-reload
+			  systemctl restart docker
+			  systemctl restart docker-bootstrap
+			fi
+            ;;
+        *)
+            echo "Unsupported operations system ${lsb_dist}"
+            exit 1
+            ;;
+    esac
+}
+
 echo "Detecting your OS distro ..."
 detect_lsb
+
+echo "Set docker registry"
+set_docker_registry
 
 echo "Starting k8s ..."
 start_k8s

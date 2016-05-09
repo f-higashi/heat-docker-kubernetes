@@ -113,6 +113,8 @@ function run-heat-script() {
       --parameter number_of_minions=${NUMBER_OF_MINIONS} \
       --parameter max_number_of_minions=${MAX_NUMBER_OF_MINIONS} \
       --parameter dns_nameserver=${DNS_SERVER} \
+      --parameter docker_registry_url=${DOCKER_REGISTRY_URL} \
+      --parameter docker_registry_prefix=${DOCKER_REGISTRY_PREFIX} \
       --template kubecluster.yaml \
       ${STACK_NAME}
   else
