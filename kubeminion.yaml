@@ -57,6 +57,16 @@ parameters:
   secgroup_node:
     type: string
 
+  docker_registry_url:
+    type: string
+    description: Docker registry url
+    default:
+
+  docker_registry_prefix:
+    type: string
+    description: Docker registry prefix for k8s images
+    default:
+
 resources:
 
   ######################################################################
@@ -102,6 +112,8 @@ resources:
           params:
             "$MASTER_IP": {get_param: kube_master_ip}
             "$ROLE": "node"
+            "$DOCKER_REGISTRY_URL": {get_param: docker_registry_url}
+            "$DOCKER_REGISTRY_PREFIX": {get_param: docker_registry_prefix}
 
   kube_user:
     type: OS::Heat::SoftwareConfig
@@ -113,7 +125,14 @@ resources:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/worker.sh}
+      config:
+        str_replace:
+          params:
+            "$WORKER_CONTENT": {get_file: fragments/worker.sh}
+          template: |
+            #!/bin/bash
+            source /etc/sysconfig/heat-params
+            $WORKER_CONTENT
 
   pre_tasks:
     type: OS::Heat::SoftwareConfig
@@ -123,7 +142,7 @@ resources:
         str_replace:
           template: {get_file: fragments/custom-scripts.sh}
           params:
-            "$CUSTOM_SCRIPTS_PATH": " /usr/local/pre-scripts"
+            "$CUSTOM_SCRIPTS_PATH": "/usr/local/pre-scripts"
 
   post_tasks:
     type: OS::Heat::SoftwareConfig
@@ -133,7 +152,7 @@ resources:
         str_replace:
           template: {get_file: fragments/custom-scripts.sh}
           params:
-            "$CUSTOM_SCRIPTS_PATH": " /usr/local/post-scripts"
+            "$CUSTOM_SCRIPTS_PATH": "/usr/local/post-scripts"
 
   kube_minion_init:
     type: OS::Heat::MultipartMime

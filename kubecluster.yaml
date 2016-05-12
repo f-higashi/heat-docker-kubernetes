@@ -74,6 +74,16 @@ parameters:
       timeout for the Wait Conditions
     default: 1000
 
+  docker_registry_url:
+    type: string
+    description: Docker registry url
+    default:
+
+  docker_registry_prefix:
+    type: string
+    description: Docker registry prefix for k8s images
+    default:
+
 resources:
 
   ######################################################################
@@ -179,6 +189,8 @@ resources:
           params:
             "$MASTER_IP": {get_attr: [kube_master_eth0, fixed_ips, 0, ip_address]}
             "$ROLE": "master"
+            "$DOCKER_REGISTRY_URL": {get_param: docker_registry_url}
+            "$DOCKER_REGISTRY_PREFIX": {get_param: docker_registry_prefix}
 
   kube_user:
     type: OS::Heat::SoftwareConfig
@@ -194,7 +206,7 @@ resources:
         str_replace:
           template: {get_file: fragments/custom-scripts.sh}
           params:
-            "$CUSTOM_SCRIPTS_PATH": " /usr/local/pre-scripts"
+            "$CUSTOM_SCRIPTS_PATH": "/usr/local/pre-scripts"
 
   post_tasks:
     type: OS::Heat::SoftwareConfig
@@ -204,13 +216,20 @@ resources:
         str_replace:
           template: {get_file: fragments/custom-scripts.sh}
           params:
-            "$CUSTOM_SCRIPTS_PATH": " /usr/local/post-scripts"
+            "$CUSTOM_SCRIPTS_PATH": "/usr/local/post-scripts"
 
   provision_master:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/master.sh}
+      config:
+        str_replace:
+          params:
+            "$MASTER_CONTENT": {get_file: fragments/master.sh}
+          template: |
+            #!/bin/bash
+            source /etc/sysconfig/heat-params
+            $MASTER_CONTENT
 
   kube_master_init:
     type: OS::Heat::MultipartMime
@@ -292,6 +311,8 @@ resources:
           cluster_name: {get_param: "OS::stack_name"}
           secgroup_base: {get_resource: secgroup_base}
           secgroup_node: {get_resource: secgroup_node}
+          docker_registry_url: {get_param: docker_registry_url}
+          docker_registry_prefix: {get_param: docker_registry_prefix}
       min_size: {get_param: number_of_minions}
       desired_capacity: {get_param: number_of_minions}
       max_size: {get_param: max_number_of_minions}

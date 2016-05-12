@@ -29,3 +29,9 @@ CLIENT_PUBLIC_KEY_PATH=${CLIENT_PUBLIC_KEY_PATH:-~/.ssh/id_rsa.pub}
 
 # Max time period for stack provisioning. Time in minutes.
 STACK_CREATE_TIMEOUT=${STACK_CREATE_TIMEOUT:-60}
+
+# Private Docker registry url. Leave empty for default docker hub.
+DOCKER_REGISTRY_URL=${DOCKER_REGISTRY_URL:-}
+
+# Docker registry prefix for all k8s images.
+DOCKER_REGISTRY_PREFIX=${DOCKER_REGISTRY_PREFIX:-}
