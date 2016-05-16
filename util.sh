@@ -141,10 +141,17 @@ function configure-kubectl() {
   fi
   
   local cluster_args=(
-      "--server=${KUBE_SERVER:-http://${KUBE_MASTER_IP}:8080}"
+      "--server=${KUBE_SERVER:-https://${KUBE_MASTER_IP}:6443}"
+      "--insecure-skip-tls-verify=true"
+  )
+
+  local credential_args=(
+      "--username=admin"
+      "--password=admin"
   )
 
   kubectl config set-cluster "${CONTEXT}" "${cluster_args[@]}"
+  kubectl config set-credentials "${CONTEXT}" "${credential_args[@]}"
   kubectl config set-context "${CONTEXT}" --cluster="${CONTEXT}" --user="${CONTEXT}"
   kubectl config use-context "${CONTEXT}"  --cluster="${CONTEXT}"
 
