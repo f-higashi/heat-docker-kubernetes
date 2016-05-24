@@ -69,32 +69,6 @@ parameters:
 
 resources:
 
-  ######################################################################
-  #
-  # wait conditions and signal.
-  #
-
-  minion_wait_handle:
-    type: OS::Heat::WaitConditionHandle
-
-  minion_wait_condition:
-    type: OS::Heat::WaitCondition
-    depends_on: kube_minion
-    properties:
-      handle: {get_resource: minion_wait_handle}
-      timeout: {get_param: wait_condition_timeout}
-
-  minion_wc_notify:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config:
-        str_replace:
-          template: |
-            #!/bin/bash -v
-            wc_notify --data-binary '{"status": "SUCCESS"}'
-          params:
-            wc_notify: {get_attr: [minion_wait_handle, curl_cli]}
 
   ######################################################################
   #
@@ -125,23 +99,22 @@ resources:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config:
-        str_replace:
-          params:
-            "$WORKER_CONTENT": {get_file: fragments/worker.sh}
-            wc_notify: {get_attr: [minion_wait_handle, curl_cli]}
-          template: |
+      config: |
             #!/bin/bash
             set -e
-            function finish {
-              if [ "$?" -ne 0 ]
-              then
-                wc_notify --data-binary '{"status": "FAILURE"}'
-              fi
-            }
-            trap "finish"  EXIT
-            source /etc/sysconfig/heat-params
-            $WORKER_CONTENT
+            yum install git -y
+            tee /etc/yum.repos.d/docker.repo <<-'EOF'
+            [dockerrepo]
+            name=Docker Repository
+            baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
+            enabled=1
+            gpgcheck=1
+            gpgkey=https://yum.dockerproject.org/gpg
+            EOF
+            usermod -aG docker minion
+            service docker start
+            su - minion -c 'git clone https://github.com/kubernetes/kube-deploy.git'
+
 
   pre_tasks:
     type: OS::Heat::SoftwareConfig
@@ -169,10 +142,7 @@ resources:
       parts:
         - config: {get_resource: write_heat_params}
         - config: {get_resource: kube_user}
-        - config: {get_resource: pre_tasks}
         - config: {get_resource: provision_node}
-        - config: {get_resource: post_tasks}
-        - config: {get_resource: minion_wc_notify}
 
   ######################################################################
   #

@@ -18,13 +18,5 @@ verify-prereqs
 echo "... calling kube-up" >&2
 kube-up
 
-echo "... calling validate-cluster" >&2
-validate-cluster
-
-echo "... calling configure-kubectl" >&2
-configure-kubectl
-
-echo "... checking nodes" >&2
-kubectl get nodes
 
 exit 0
