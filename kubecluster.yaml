@@ -191,7 +191,7 @@ resources:
             EOF
             usermod -aG docker minion
             service docker start
-            su - minion -c 'git clone https://github.com/kubernetes/kube-deploy.git'
+            git clone https://github.com/kubernetes/kube-deploy.git
             
 
   kube_master_init:
